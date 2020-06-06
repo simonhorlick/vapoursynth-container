@@ -12,13 +12,6 @@ logfile="${path}/${filename}-qtgmc-mezzanine.log"
 
 echo "[$(date +"%F %R")] Starting deinterlace of $filename" >> "$logfile"
 
-# This is stupid, but vapoursynth requires the total frame count to be
-# available, which it isn't if we're piping raw video. Pass through the entire
-# file counting the frames before doing anything else.
-frames=$(ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 "$inputfile" | tail -1)
-
-end=$((frames*2-1))
-
 # Now we determine the audio-video offset by probing the original stream.
 audioTrackStart=$(ffprobe -v error -select_streams a:0 -show_entries stream=start_time -of default=noprint_wrappers=1:nokey=1 "$inputfile" | head -1)
 videoTrackStart=$(ffprobe -v error -select_streams v:0 -show_entries stream=start_time -of default=noprint_wrappers=1:nokey=1 "$inputfile" | head -1)
@@ -32,9 +25,12 @@ echo "[$(date +"%F %R")] audioOffset = $audioOffset" >> "$logfile"
 # Decode the source video into raw yuv420p
 ffmpeg -nostats -y -i "$inputfile" -err_detect ignore_err -pix_fmt yuv420p -f yuv4mpegpipe "${path}/${filename}.y4m"
 
-# Decode the source video into raw yuv420p and pass to vapoursynth, then take
-# the result and do a transparent encode into h.264.
-cat "${path}/${filename}.y4m" | vspipe --progress --end $end --requests 1 --y4m /deinterlace.vpy - | ffmpeg \
+# Symlink the source to a well known location (this is used in the vapoursynth script).
+ln -sv "${path}/${filename}.y4m" /tmp/input.y4m
+
+# Pass the raw source video into vapoursynth for processing then do a quick,
+# high-quality encode into H.264.
+vspipe --progress --requests 1 --y4m /deinterlace.vpy - | ffmpeg \
   -nostats \
   -y \
   -i - \

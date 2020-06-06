@@ -69,4 +69,4 @@ RUN \
 COPY deinterlace.vpy /
 COPY entrypoint.sh /
 
-CMD [ "./entrypoint.sh" ]
+CMD [ "/entrypoint.sh" ]
